@@ -10,6 +10,24 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # LLM & Voice
+  llama_sdk: ^0.0.5
+  speech_to_text: ^6.6.0
+  flutter_tts: ^3.8.5
+
+  # Networking & Storage
+  dio: ^5.4.1
+  shared_preferences: ^2.2.2
+
+  # Permissions & Files
+  permission_handler: ^11.3.1
+  path_provider: ^2.1.2
+
+  # UI
+  google_fonts: ^6.1.0
+  provider: ^6.0.0
+
   cupertino_icons: ^1.0.2
 
 dev_dependencies:
