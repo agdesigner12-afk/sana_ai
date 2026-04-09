@@ -3,7 +3,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -170,38 +169,26 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
+class _HomePageState extends State<HomePage> {
   late SanaState state;
   bool _micAvailable = false;
   final stt.SpeechToText _speech = stt.SpeechToText();
-  final FlutterTts _tts = FlutterTts();
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _isTtsReady = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     state = Provider.of<SanaState>(context, listen: false);
     _initSpeech();
-    _initTts();
     state.initialize();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _msgController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
-    if (lifecycleState == AppLifecycleState.paused) {
-      _tts.stop();
-    }
   }
 
   Future<void> _initSpeech() async {
@@ -209,16 +196,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       onError: (error) => debugPrint('STT Error: $error'),
     );
     if (mounted) setState(() => _micAvailable = available);
-  }
-
-  Future<void> _initTts() async {
-    final prefs = await SharedPreferences.getInstance();
-    final voice = prefs.getString('tts_voice') ?? 'hi-IN';
-    final rate = prefs.getDouble('tts_rate') ?? 0.5;
-    await _tts.setLanguage(voice);
-    await _tts.setSpeechRate(rate);
-    await _tts.setPitch(1.0);
-    if (mounted) setState(() => _isTtsReady = true);
   }
 
   Future<void> _startListening() async {
@@ -238,7 +215,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       },
       listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 3),
-      localeId: state.selectedSttLocale, // डायनामिक लोकेल
+      localeId: state.selectedSttLocale,
       onSoundLevelChange: (level) {},
       cancelOnError: true,
       partialResults: true,
@@ -257,19 +234,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     state.addUserMessage(text);
     _msgController.clear();
     _scrollToBottom();
-    final response = await state.sendMessage(text);
-    if (response != null && state.autoSpeak) {
-      await _speak(response);
-    }
-  }
-
-  Future<void> _speak(String text) async {
-    if (!_isTtsReady) return;
-    await _tts.speak(text);
-  }
-
-  Future<void> _replayMessage(String text) async {
-    await _speak(text);
+    await state.sendMessage(text);
   }
 
   void _scrollToBottom() {
@@ -316,7 +281,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             onStartListen: _startListening,
             onStopListen: _stopListening,
             onSend: _sendMessage,
-            onReplay: _replayMessage,
           ),
         );
       },
@@ -336,7 +300,6 @@ class _ChatView extends StatelessWidget {
   final VoidCallback onStartListen;
   final VoidCallback onStopListen;
   final Function(String) onSend;
-  final Function(String) onReplay;
 
   const _ChatView({
     required this.state,
@@ -347,7 +310,6 @@ class _ChatView extends StatelessWidget {
     required this.onStartListen,
     required this.onStopListen,
     required this.onSend,
-    required this.onReplay,
   });
 
   @override
@@ -365,7 +327,6 @@ class _ChatView extends StatelessWidget {
               return _MessageBubble(
                 text: msg['content'] ?? '',
                 isUser: isUser,
-                onReplay: isUser ? null : () => onReplay(msg['content']!),
               );
             },
           ),
@@ -398,9 +359,8 @@ class _ChatView extends StatelessWidget {
 class _MessageBubble extends StatelessWidget {
   final String text;
   final bool isUser;
-  final VoidCallback? onReplay;
 
-  const _MessageBubble({required this.text, required this.isUser, this.onReplay});
+  const _MessageBubble({required this.text, required this.isUser});
 
   @override
   Widget build(BuildContext context) {
@@ -431,24 +391,9 @@ class _MessageBubble extends StatelessWidget {
                 ),
                 border: isUser ? Border.all(color: const Color(0xFF00B4D8).withOpacity(0.3)) : null,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SelectableText(
-                    text,
-                    style: TextStyle(color: isUser ? Colors.white : Colors.white70),
-                  ),
-                  if (!isUser && onReplay != null)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: IconButton(
-                        icon: const Icon(Icons.volume_up, size: 18, color: Color(0xFF00B4D8)),
-                        onPressed: onReplay,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ),
-                ],
+              child: SelectableText(
+                text,
+                style: TextStyle(color: isUser ? Colors.white : Colors.white70),
               ),
             ),
           ),
@@ -544,7 +489,7 @@ class _MessageInput extends StatelessWidget {
 }
 
 // -------------------------------------------------------------
-// सेटिंग्स स्क्रीन (उर्दू सपोर्ट सहित)
+// सेटिंग्स स्क्रीन (बिना TTS के)
 // -------------------------------------------------------------
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -554,9 +499,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  String _selectedVoice = 'hi-IN';
-  double _speechRate = 0.5;
-  bool _autoSpeak = true;
   String _selectedSttLocale = 'hi_IN';
 
   @override
@@ -568,25 +510,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _selectedVoice = prefs.getString('tts_voice') ?? 'hi-IN';
-      _speechRate = prefs.getDouble('tts_rate') ?? 0.5;
-      _autoSpeak = prefs.getBool('auto_speak') ?? true;
       _selectedSttLocale = prefs.getString('stt_locale') ?? 'hi_IN';
     });
   }
 
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('tts_voice', _selectedVoice);
-    await prefs.setDouble('tts_rate', _speechRate);
-    await prefs.setBool('auto_speak', _autoSpeak);
     await prefs.setString('stt_locale', _selectedSttLocale);
-    Provider.of<SanaState>(context, listen: false).updateSettings(
-      voice: _selectedVoice,
-      rate: _speechRate,
-      autoSpeak: _autoSpeak,
-      sttLocale: _selectedSttLocale,
-    );
+    Provider.of<SanaState>(context, listen: false).updateSettings(sttLocale: _selectedSttLocale);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Settings saved')),
     );
@@ -605,26 +536,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Text('Voice Settings', style: TextStyle(fontSize: 18, color: Color(0xFF00B4D8))),
+          const Text('Speech Recognition', style: TextStyle(fontSize: 18, color: Color(0xFF00B4D8))),
           const SizedBox(height: 16),
           ListTile(
-            title: const Text('TTS Voice (बोलने की भाषा)'),
-            subtitle: Text(_selectedVoice == 'hi-IN' ? 'हिंदी' : (_selectedVoice == 'ur-PK' ? 'اردو' : 'English')),
-            trailing: DropdownButton<String>(
-              value: _selectedVoice,
-              onChanged: (String? newValue) {
-                setState(() => _selectedVoice = newValue!);
-                _saveSettings();
-              },
-              items: const [
-                DropdownMenuItem(value: 'hi-IN', child: Text('हिंदी')),
-                DropdownMenuItem(value: 'ur-PK', child: Text('اردو')),
-                DropdownMenuItem(value: 'en-US', child: Text('English')),
-              ],
-            ),
-          ),
-          ListTile(
-            title: const Text('Speech Recognition (सुनने की भाषा)'),
+            title: const Text('भाषा (Language)'),
             subtitle: Text(_selectedSttLocale == 'hi_IN' ? 'हिंदी' : (_selectedSttLocale == 'ur_PK' ? 'اردو' : 'English')),
             trailing: DropdownButton<String>(
               value: _selectedSttLocale,
@@ -638,30 +553,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 DropdownMenuItem(value: 'en_US', child: Text('English')),
               ],
             ),
-          ),
-          ListTile(
-            title: const Text('Speech Rate'),
-            subtitle: Slider(
-              value: _speechRate,
-              min: 0.1,
-              max: 1.0,
-              divisions: 9,
-              label: _speechRate.toStringAsFixed(1),
-              activeColor: const Color(0xFF00B4D8),
-              onChanged: (val) {
-                setState(() => _speechRate = val);
-                _saveSettings();
-              },
-            ),
-          ),
-          SwitchListTile(
-            title: const Text('Auto-speak responses'),
-            value: _autoSpeak,
-            onChanged: (val) {
-              setState(() => _autoSpeak = val);
-              _saveSettings();
-            },
-            activeColor: const Color(0xFF00B4D8),
           ),
           const Divider(height: 40),
           const Text('About', style: TextStyle(fontSize: 18, color: Color(0xFF00B4D8))),
@@ -686,15 +577,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 class SanaState extends ChangeNotifier {
   List<Map<String, String>> messages = [];
   bool isGenerating = false;
-
-  String ttsVoice = 'hi-IN';
-  double ttsRate = 0.5;
-  bool autoSpeak = true;
   String selectedSttLocale = 'hi_IN';
 
-  void initialize() {
-    // कोई मॉडल लोडिंग नहीं
-  }
+  void initialize() {}
 
   void addUserMessage(String text) {
     messages.add({'role': 'user', 'content': text});
@@ -702,15 +587,15 @@ class SanaState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<String?> sendMessage(String prompt) async {
+  Future<void> sendMessage(String prompt) async {
     isGenerating = true;
     notifyListeners();
 
-    // बहुभाषी मॉक जवाब
+    // मॉक जवाब
     String mockReply;
-    if (ttsVoice == 'ur-PK') {
+    if (selectedSttLocale == 'ur_PK') {
       mockReply = "السلام علیکم! میں ثناء ہوں۔ یہ ایک آزمائشی پیغام ہے۔";
-    } else if (ttsVoice == 'hi-IN') {
+    } else if (selectedSttLocale == 'hi_IN') {
       mockReply = "नमस्ते! मैं सना हूँ। यह एक परीक्षण संदेश है।";
     } else {
       mockReply = "Hello! I am Sana. This is a test message.";
@@ -726,13 +611,9 @@ class SanaState extends ChangeNotifier {
 
     isGenerating = false;
     notifyListeners();
-    return mockReply;
   }
 
-  void updateSettings({String? voice, double? rate, bool? autoSpeak, String? sttLocale}) {
-    if (voice != null) ttsVoice = voice;
-    if (rate != null) ttsRate = rate;
-    if (autoSpeak != null) this.autoSpeak = autoSpeak;
+  void updateSettings({String? sttLocale}) {
     if (sttLocale != null) selectedSttLocale = sttLocale;
     notifyListeners();
   }

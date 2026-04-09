@@ -10,7 +10,6 @@ dependencies:
   flutter:
     sdk: flutter
   speech_to_text: ^6.5.0
-  # flutter_tts हटा दिया गया है
   permission_handler: ^11.0.1
   shared_preferences: ^2.2.2
   google_fonts: ^6.1.0
