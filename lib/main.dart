@@ -824,7 +824,8 @@ class SanaState extends ChangeNotifier {
     appState = AppState.loading;
     notifyListeners();
     try {
-      _llama = await LlamaController.loadFromPath(path);
+      _llama = LlamaController.fromPath(path);
+      await _llama?.initialize();
       appState = AppState.ready;
       notifyListeners();
     } catch (e) {
@@ -848,7 +849,7 @@ class SanaState extends ChangeNotifier {
     final stopWords = ['<|endoftext|>', '<|user|>', '<|assistant|>'];
     String fullResponse = '';
     try {
-      await for (final token in _llama!.inference(prompt, stopWords: stopWords)) {
+      await for (final token in _llama!.generate(prompt, stopTokens: stopWords)) {
         fullResponse += token;
         messages.last['content'] = fullResponse;
         notifyListeners();
