@@ -264,7 +264,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _msgController.clear();
     _scrollToBottom();
     final response = await state.sendMessage(text);
-    if (response != null && state.autoSpeak) {
+    if (response != null && state.settings.autoSpeak) {
       await _speak(response);
     }
   }
@@ -753,7 +753,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 // -------------------------------------------------------------
-// State Management
+// State Management (FIXED for llama_sdk 0.0.5)
 // -------------------------------------------------------------
 enum AppState { downloading, loading, ready, error }
 enum DownloadStatus { idle, downloading, completed, failed }
@@ -767,9 +767,8 @@ class SanaState extends ChangeNotifier {
   List<Map<String, String>> messages = [];
   bool isGenerating = false;
 
-  late LlamaController? _llama;
+  LlamaController? _llama;
   final Dio _dio = Dio();
-  String get modelPath => '/data/user/0/com.example.sana_ai/files/models/gemma-2b.gguf';
   final String modelUrl = 'https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf';
 
   // Settings
@@ -824,6 +823,7 @@ class SanaState extends ChangeNotifier {
     appState = AppState.loading;
     notifyListeners();
     try {
+      // Correct API for llama_sdk 0.0.5
       _llama = LlamaController.fromPath(path);
       await _llama?.initialize();
       appState = AppState.ready;
@@ -849,6 +849,7 @@ class SanaState extends ChangeNotifier {
     final stopWords = ['<|endoftext|>', '<|user|>', '<|assistant|>'];
     String fullResponse = '';
     try {
+      // Correct method name for inference
       await for (final token in _llama!.generate(prompt, stopTokens: stopWords)) {
         fullResponse += token;
         messages.last['content'] = fullResponse;
@@ -866,7 +867,6 @@ class SanaState extends ChangeNotifier {
     if (voice != null) ttsVoice = voice;
     if (rate != null) ttsRate = rate;
     if (autoSpeak != null) this.autoSpeak = autoSpeak;
-    // Notify UI, but settings are saved via SharedPreferences in the screen
   }
 
   void retry() {
