@@ -9,7 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  llama: ^0.0.3
+  llama_cpp_dart: ^0.0.4+1
   path_provider: ^2.0.15
   dio: ^5.3.0
   speech_to_text: ^6.5.0

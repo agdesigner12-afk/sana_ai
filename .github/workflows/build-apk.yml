@@ -10,29 +10,55 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+        with:
+          submodules: true
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.27.0'
-      
+
       - name: Create Android folder if missing
         run: |
           if [ ! -d "android" ]; then
             flutter create --platforms=android .
           fi
-      
-      # compileSdk को 36 पर सेट करें
-      - name: Update compileSdk to 36 for flutter_tts
+
+      - name: Configure Android build.gradle
         run: |
+          # compileSdk को 36 पर सेट करें
           sed -i 's/compileSdk = .*/compileSdk = 36/' android/app/build.gradle
-      
+          # यदि compileSdk पहले से नहीं है तो जोड़ें (सुरक्षा हेतु)
+          if ! grep -q "compileSdk" android/app/build.gradle; then
+            sed -i '/android {/a \ \ \ \ compileSdk = 36' android/app/build.gradle
+          fi
+          # CMake पाथ जोड़ें (यदि न हो)
+          if ! grep -q "externalNativeBuild" android/app/build.gradle; then
+            cat >> android/app/build.gradle << 'EOF'
+
+          android {
+              defaultConfig {
+                  externalNativeBuild {
+                      cmake {
+                          arguments "-DLLAMA_BUILD_EXAMPLES=OFF", "-DLLAMA_BUILD_TESTS=OFF"
+                      }
+                  }
+              }
+              externalNativeBuild {
+                  cmake {
+                      path "../../llama.cpp/CMakeLists.txt"
+                  }
+              }
+          }
+          EOF
+          fi
+
       - name: Install dependencies
         run: flutter pub get
-      
+
       - name: Build APK
         run: flutter build apk --release
-      
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
