@@ -3,7 +3,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:llama_sdk/llama_sdk.dart';
+import 'package:llama_flutter/llama_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -753,7 +753,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 // -------------------------------------------------------------
-// State Management
+// State Management (llama_flutter)
 // -------------------------------------------------------------
 enum AppState { downloading, loading, ready, error }
 enum DownloadStatus { idle, downloading, completed, failed }
@@ -767,9 +767,8 @@ class SanaState extends ChangeNotifier {
   List<Map<String, String>> messages = [];
   bool isGenerating = false;
 
-  late LlamaController? _llama;
+  LLama? _llama;
   final Dio _dio = Dio();
-  String get modelPath => '/data/user/0/com.example.sana_ai/files/models/gemma-2b.gguf';
   final String modelUrl = 'https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf';
 
   // Settings
@@ -824,8 +823,7 @@ class SanaState extends ChangeNotifier {
     appState = AppState.loading;
     notifyListeners();
     try {
-      _llama = LlamaController.fromPath(path);
-      await _llama?.initialize();
+      _llama = await LLama.loadFromFile(path);
       appState = AppState.ready;
       notifyListeners();
     } catch (e) {
@@ -846,10 +844,9 @@ class SanaState extends ChangeNotifier {
     isGenerating = true;
     notifyListeners();
 
-    final stopWords = ['<|endoftext|>', '<|user|>', '<|assistant|>'];
     String fullResponse = '';
     try {
-      await for (final token in _llama!.generate(prompt, stopTokens: stopWords)) {
+      await for (final token in _llama!.generate(prompt)) {
         fullResponse += token;
         messages.last['content'] = fullResponse;
         notifyListeners();
@@ -866,7 +863,7 @@ class SanaState extends ChangeNotifier {
     if (voice != null) ttsVoice = voice;
     if (rate != null) ttsRate = rate;
     if (autoSpeak != null) this.autoSpeak = autoSpeak;
-    // Notify UI, but settings are saved via SharedPreferences in the screen
+    notifyListeners();
   }
 
   void retry() {
