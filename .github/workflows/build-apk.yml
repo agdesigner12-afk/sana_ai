@@ -21,6 +21,16 @@ jobs:
           flutter-version: '3.27.0'
           channel: 'stable'
 
+      - name: Create Android folder if missing
+        run: |
+          if [ ! -d "android" ]; then
+            echo "Android folder not found. Creating..."
+            flutter create --platforms=android .
+            echo "Android folder created successfully"
+          else
+            echo "Android folder already exists"
+          fi
+
       - name: Install dependencies
         run: flutter pub get
 
