@@ -16,6 +16,13 @@ jobs:
         with:
           flutter-version: '3.27.0'
       
+      - name: Clone llama.cpp for llama_cpp_dart
+        run: |
+          cd android/app
+          git clone https://github.com/ggerganov/llama.cpp.git
+          cd llama.cpp
+          git checkout master
+      
       - name: Create Android folder if missing
         run: |
           if [ ! -d "android" ]; then
