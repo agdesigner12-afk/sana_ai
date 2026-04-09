@@ -1,9 +1,8 @@
 // ignore_for_file: depend_on_referenced_packages, library_private_types_in_public_api, use_build_context_synchronously
 
 import 'dart:async';
-import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:llama/llama.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -321,8 +320,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Widget _buildBody(SanaState state) {
     switch (state.appState) {
-      case AppState.downloading:
-        return _DownloadView(state: state);
       case AppState.loading:
         return const Center(
           child: Column(
@@ -330,7 +327,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             children: [
               CircularProgressIndicator(color: Color(0xFF00B4D8)),
               SizedBox(height: 16),
-              Text('Calibrating neural engine...'),
+              Text('साना तैयार हो रही है...'),
             ],
           ),
         );
@@ -365,58 +362,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           ),
         );
+      default:
+        return const SizedBox.shrink();
     }
-  }
-}
-
-// -------------------------------------------------------------
-// Download View (Progress)
-// -------------------------------------------------------------
-class _DownloadView extends StatelessWidget {
-  final SanaState state;
-  const _DownloadView({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.download_for_offline, size: 64, color: Color(0xFF00B4D8)),
-          const SizedBox(height: 24),
-          Text(
-            'Downloading AI Brain',
-            style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${(state.downloadProgress * 100).toStringAsFixed(0)}%',
-            style: const TextStyle(fontSize: 36, color: Color(0xFF00B4D8)),
-          ),
-          const SizedBox(height: 16),
-          LinearProgressIndicator(
-            value: state.downloadProgress,
-            backgroundColor: const Color(0xFF1A1A1A),
-            color: const Color(0xFF00B4D8),
-            minHeight: 8,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '${(state.downloadProgress * 1.5).toStringAsFixed(1)} GB / 1.5 GB',
-            style: const TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 30),
-          if (state.downloadStatus == DownloadStatus.failed)
-            ElevatedButton.icon(
-              onPressed: () => state.retryDownload(),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry Download'),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00B4D8)),
-            ),
-        ],
-      ),
-    );
   }
 }
 
@@ -753,23 +701,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 // -------------------------------------------------------------
-// State Management (llama package)
+// State Management (DeepSeek API)
 // -------------------------------------------------------------
-enum AppState { downloading, loading, ready, error }
-enum DownloadStatus { idle, downloading, completed, failed }
+enum AppState { loading, ready, error }
 
 class SanaState extends ChangeNotifier {
-  AppState appState = AppState.downloading;
-  DownloadStatus downloadStatus = DownloadStatus.idle;
-  double downloadProgress = 0.0;
+  AppState appState = AppState.loading;
   String? errorMessage;
 
   List<Map<String, String>> messages = [];
   bool isGenerating = false;
 
-  Llama? _llama;
   final Dio _dio = Dio();
-  final String modelUrl = 'https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf';
+  // अपनी DeepSeek API Key यहाँ डालें (यह महत्वपूर्ण है)
+  final String _apiKey = 'sk-1f8c9957a1ef4bd19dff66c1cec44d50';
 
   // Settings
   String ttsVoice = 'hi-IN';
@@ -777,58 +722,12 @@ class SanaState extends ChangeNotifier {
   bool autoSpeak = true;
 
   Future<void> initialize() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final modelsDir = Directory('${dir.path}/models');
-    if (!await modelsDir.exists()) await modelsDir.create(recursive: true);
-
-    final modelFile = File('${modelsDir.path}/gemma-2b.gguf');
-    if (await modelFile.exists()) {
-      await _loadModel(modelFile.path);
-    } else {
-      await _startDownload(modelFile.path);
-    }
-  }
-
-  Future<void> _startDownload(String savePath) async {
-    appState = AppState.downloading;
-    downloadStatus = DownloadStatus.downloading;
-    notifyListeners();
-
     try {
-      await _dio.download(
-        modelUrl,
-        savePath,
-        onReceiveProgress: (received, total) {
-          downloadProgress = received / total;
-          notifyListeners();
-        },
-      );
-      downloadStatus = DownloadStatus.completed;
-      await _loadModel(savePath);
-    } catch (e) {
-      downloadStatus = DownloadStatus.failed;
-      errorMessage = 'Download failed: ${e.toString()}';
-      appState = AppState.error;
-      notifyListeners();
-    }
-  }
-
-  Future<void> retryDownload() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final savePath = '${dir.path}/models/gemma-2b.gguf';
-    await _startDownload(savePath);
-  }
-
-  Future<void> _loadModel(String path) async {
-    appState = AppState.loading;
-    notifyListeners();
-    try {
-      _llama = Llama(modelPath: path);
-      await _llama!.initialize();
+      // कोई मॉडल डाउनलोड नहीं, सीधे तैयार
       appState = AppState.ready;
       notifyListeners();
     } catch (e) {
-      errorMessage = 'Failed to load model: $e';
+      errorMessage = 'Initialization failed: $e';
       appState = AppState.error;
       notifyListeners();
     }
@@ -841,23 +740,57 @@ class SanaState extends ChangeNotifier {
   }
 
   Future<String?> sendMessage(String prompt) async {
-    if (_llama == null) return null;
     isGenerating = true;
     notifyListeners();
 
-    String fullResponse = '';
     try {
-      await for (final token in _llama!.generate(prompt)) {
-        fullResponse += token;
-        messages.last['content'] = fullResponse;
-        notifyListeners();
+      final response = await _dio.post(
+        'https://api.deepseek.com/chat/completions',
+        options: Options(
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_apiKey',
+          },
+        ),
+        data: jsonEncode({
+          'model': 'deepseek-chat',
+          'messages': [
+            {'role': 'system', 'content': 'You are Sana, a helpful and friendly Hinglish AI assistant. Respond concisely in Hinglish.'},
+            {'role': 'user', 'content': prompt},
+          ],
+          'stream': true,
+        }),
+      );
+
+      // स्ट्रीमिंग रिस्पॉन्स को संभालना
+      String fullResponse = '';
+      await for (final chunk in response.data.stream) {
+        final lines = chunk.toString().split('\n');
+        for (final line in lines) {
+          if (line.startsWith('data: ')) {
+            final data = line.substring(6);
+            if (data == '[DONE]') continue;
+            try {
+              final json = jsonDecode(data);
+              final content = json['choices'][0]['delta']['content'];
+              if (content != null) {
+                fullResponse += content;
+                messages.last['content'] = fullResponse;
+                notifyListeners();
+              }
+            } catch (_) {}
+          }
+        }
       }
+      isGenerating = false;
+      notifyListeners();
+      return fullResponse;
     } catch (e) {
-      messages.last['content'] = 'Error: $e';
+      messages.last['content'] = 'Error: ${e.toString()}';
+      isGenerating = false;
+      notifyListeners();
+      return null;
     }
-    isGenerating = false;
-    notifyListeners();
-    return fullResponse;
   }
 
   void updateSettings({String? voice, double? rate, bool? autoSpeak}) {
@@ -870,11 +803,5 @@ class SanaState extends ChangeNotifier {
   void retry() {
     errorMessage = null;
     initialize();
-  }
-
-  @override
-  void dispose() {
-    _llama?.dispose();
-    super.dispose();
   }
 }
