@@ -3,7 +3,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:llama_sdk/llama_sdk.dart';
+import 'package:llama_flutter/llama_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -264,7 +264,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _msgController.clear();
     _scrollToBottom();
     final response = await state.sendMessage(text);
-    if (response != null && state.settings.autoSpeak) {
+    if (response != null && state.autoSpeak) {
       await _speak(response);
     }
   }
@@ -753,7 +753,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 // -------------------------------------------------------------
-// State Management (FIXED for llama_sdk 0.0.5)
+// State Management (Using llama_flutter)
 // -------------------------------------------------------------
 enum AppState { downloading, loading, ready, error }
 enum DownloadStatus { idle, downloading, completed, failed }
@@ -767,7 +767,7 @@ class SanaState extends ChangeNotifier {
   List<Map<String, String>> messages = [];
   bool isGenerating = false;
 
-  LlamaController? _llama;
+  LLama? _llama;
   final Dio _dio = Dio();
   final String modelUrl = 'https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf';
 
@@ -823,9 +823,7 @@ class SanaState extends ChangeNotifier {
     appState = AppState.loading;
     notifyListeners();
     try {
-      // Correct API for llama_sdk 0.0.5
-      _llama = LlamaController.fromPath(path);
-      await _llama?.initialize();
+      _llama = await LLama.loadFromFile(path);
       appState = AppState.ready;
       notifyListeners();
     } catch (e) {
@@ -846,11 +844,9 @@ class SanaState extends ChangeNotifier {
     isGenerating = true;
     notifyListeners();
 
-    final stopWords = ['<|endoftext|>', '<|user|>', '<|assistant|>'];
     String fullResponse = '';
     try {
-      // Correct method name for inference
-      await for (final token in _llama!.generate(prompt, stopTokens: stopWords)) {
+      await for (final token in _llama!.generate(prompt)) {
         fullResponse += token;
         messages.last['content'] = fullResponse;
         notifyListeners();
@@ -867,6 +863,7 @@ class SanaState extends ChangeNotifier {
     if (voice != null) ttsVoice = voice;
     if (rate != null) ttsRate = rate;
     if (autoSpeak != null) this.autoSpeak = autoSpeak;
+    notifyListeners();
   }
 
   void retry() {
