@@ -1,10 +1,7 @@
 // ignore_for_file: depend_on_referenced_packages, library_private_types_in_public_api, use_build_context_synchronously
 
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:dio/dio.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -53,7 +50,7 @@ class SanaAI extends StatelessWidget {
 }
 
 // -------------------------------------------------------------
-// Splash Screen (Onboarding & Permission)
+// स्प्लैश स्क्रीन
 // -------------------------------------------------------------
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -112,7 +109,7 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              'आपकी निजी AI सहायिका',
+              'آپ کی نجی AI معاون',
               style: GoogleFonts.outfit(
                 fontSize: 22,
                 color: const Color(0xFF00B4D8),
@@ -126,14 +123,14 @@ class _SplashScreenState extends State<SplashScreen> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: const Color(0xFF00B4D8).withOpacity(0.3)),
               ),
-              child: Column(
+              child: const Column(
                 children: [
-                  const Icon(Icons.security, color: Color(0xFF00B4D8), size: 40),
-                  const SizedBox(height: 16),
+                  Icon(Icons.security, color: Color(0xFF00B4D8), size: 40),
+                  SizedBox(height: 16),
                   Text(
                     'Sana aapke phone mein hi rehti hai.\nKoi data bahar nahi jaata.',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.outfit(fontSize: 16, color: Colors.white70),
+                    style: TextStyle(fontSize: 16, color: Colors.white70),
                   ),
                 ],
               ),
@@ -164,7 +161,7 @@ class _SplashScreenState extends State<SplashScreen> {
 }
 
 // -------------------------------------------------------------
-// Main Home Page (State Machine: Download / Loading / Chat)
+// मुख्य होम पेज
 // -------------------------------------------------------------
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -189,9 +186,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     state = Provider.of<SanaState>(context, listen: false);
     _initSpeech();
     _initTts();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      state.initialize();
-    });
+    state.initialize();
   }
 
   @override
@@ -243,7 +238,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       },
       listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 3),
-      localeId: 'hi_IN',
+      localeId: state.selectedSttLocale, // डायनामिक लोकेल
       onSoundLevelChange: (level) {},
       cancelOnError: true,
       partialResults: true,
@@ -312,64 +307,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
             ],
           ),
-          body: _buildBody(state),
+          body: _ChatView(
+            state: state,
+            msgController: _msgController,
+            scrollController: _scrollController,
+            micAvailable: _micAvailable,
+            isListening: _speech.isListening,
+            onStartListen: _startListening,
+            onStopListen: _stopListening,
+            onSend: _sendMessage,
+            onReplay: _replayMessage,
+          ),
         );
       },
     );
   }
-
-  Widget _buildBody(SanaState state) {
-    switch (state.appState) {
-      case AppState.loading:
-        return const Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: Color(0xFF00B4D8)),
-              SizedBox(height: 16),
-              Text('साना तैयार हो रही है...'),
-            ],
-          ),
-        );
-      case AppState.ready:
-        return _ChatView(
-          state: state,
-          msgController: _msgController,
-          scrollController: _scrollController,
-          micAvailable: _micAvailable,
-          isListening: _speech.isListening,
-          onStartListen: _startListening,
-          onStopListen: _stopListening,
-          onSend: _sendMessage,
-          onReplay: _replayMessage,
-        );
-      case AppState.error:
-        return Center(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.error_outline, size: 60, color: Colors.redAccent),
-                const SizedBox(height: 16),
-                Text(state.errorMessage ?? 'An unexpected error occurred.'),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () => state.retry(),
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          ),
-        );
-      default:
-        return const SizedBox.shrink();
-    }
-  }
 }
 
 // -------------------------------------------------------------
-// Chat View
+// चैट व्यू
 // -------------------------------------------------------------
 class _ChatView extends StatelessWidget {
   final SanaState state;
@@ -588,7 +544,7 @@ class _MessageInput extends StatelessWidget {
 }
 
 // -------------------------------------------------------------
-// Settings Screen
+// सेटिंग्स स्क्रीन (उर्दू सपोर्ट सहित)
 // -------------------------------------------------------------
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -601,6 +557,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _selectedVoice = 'hi-IN';
   double _speechRate = 0.5;
   bool _autoSpeak = true;
+  String _selectedSttLocale = 'hi_IN';
 
   @override
   void initState() {
@@ -614,6 +571,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _selectedVoice = prefs.getString('tts_voice') ?? 'hi-IN';
       _speechRate = prefs.getDouble('tts_rate') ?? 0.5;
       _autoSpeak = prefs.getBool('auto_speak') ?? true;
+      _selectedSttLocale = prefs.getString('stt_locale') ?? 'hi_IN';
     });
   }
 
@@ -622,10 +580,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await prefs.setString('tts_voice', _selectedVoice);
     await prefs.setDouble('tts_rate', _speechRate);
     await prefs.setBool('auto_speak', _autoSpeak);
+    await prefs.setString('stt_locale', _selectedSttLocale);
     Provider.of<SanaState>(context, listen: false).updateSettings(
       voice: _selectedVoice,
       rate: _speechRate,
       autoSpeak: _autoSpeak,
+      sttLocale: _selectedSttLocale,
     );
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Settings saved')),
@@ -648,15 +608,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Text('Voice Settings', style: TextStyle(fontSize: 18, color: Color(0xFF00B4D8))),
           const SizedBox(height: 16),
           ListTile(
-            title: const Text('TTS Voice'),
-            subtitle: Text(_selectedVoice == 'hi-IN' ? 'Hindi (India)' : 'English (US)'),
-            trailing: Switch(
-              value: _selectedVoice == 'hi-IN',
-              onChanged: (val) {
-                setState(() => _selectedVoice = val ? 'hi-IN' : 'en-US');
+            title: const Text('TTS Voice (बोलने की भाषा)'),
+            subtitle: Text(_selectedVoice == 'hi-IN' ? 'हिंदी' : (_selectedVoice == 'ur-PK' ? 'اردو' : 'English')),
+            trailing: DropdownButton<String>(
+              value: _selectedVoice,
+              onChanged: (String? newValue) {
+                setState(() => _selectedVoice = newValue!);
                 _saveSettings();
               },
-              activeColor: const Color(0xFF00B4D8),
+              items: const [
+                DropdownMenuItem(value: 'hi-IN', child: Text('हिंदी')),
+                DropdownMenuItem(value: 'ur-PK', child: Text('اردو')),
+                DropdownMenuItem(value: 'en-US', child: Text('English')),
+              ],
+            ),
+          ),
+          ListTile(
+            title: const Text('Speech Recognition (सुनने की भाषा)'),
+            subtitle: Text(_selectedSttLocale == 'hi_IN' ? 'हिंदी' : (_selectedSttLocale == 'ur_PK' ? 'اردو' : 'English')),
+            trailing: DropdownButton<String>(
+              value: _selectedSttLocale,
+              onChanged: (String? newValue) {
+                setState(() => _selectedSttLocale = newValue!);
+                _saveSettings();
+              },
+              items: const [
+                DropdownMenuItem(value: 'hi_IN', child: Text('हिंदी')),
+                DropdownMenuItem(value: 'ur_PK', child: Text('اردو')),
+                DropdownMenuItem(value: 'en_US', child: Text('English')),
+              ],
             ),
           ),
           ListTile(
@@ -701,36 +681,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 // -------------------------------------------------------------
-// State Management (DeepSeek API)
+// स्टेट मैनेजमेंट
 // -------------------------------------------------------------
-enum AppState { loading, ready, error }
-
 class SanaState extends ChangeNotifier {
-  AppState appState = AppState.loading;
-  String? errorMessage;
-
   List<Map<String, String>> messages = [];
   bool isGenerating = false;
 
-  final Dio _dio = Dio();
-  // अपनी DeepSeek API Key यहाँ डालें (यह महत्वपूर्ण है)
-  final String _apiKey = 'sk-1f8c9957a1ef4bd19dff66c1cec44d50';
-
-  // Settings
   String ttsVoice = 'hi-IN';
   double ttsRate = 0.5;
   bool autoSpeak = true;
+  String selectedSttLocale = 'hi_IN';
 
-  Future<void> initialize() async {
-    try {
-      // कोई मॉडल डाउनलोड नहीं, सीधे तैयार
-      appState = AppState.ready;
-      notifyListeners();
-    } catch (e) {
-      errorMessage = 'Initialization failed: $e';
-      appState = AppState.error;
-      notifyListeners();
-    }
+  void initialize() {
+    // कोई मॉडल लोडिंग नहीं
   }
 
   void addUserMessage(String text) {
@@ -743,65 +706,34 @@ class SanaState extends ChangeNotifier {
     isGenerating = true;
     notifyListeners();
 
-    try {
-      final response = await _dio.post(
-        'https://api.deepseek.com/chat/completions',
-        options: Options(
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $_apiKey',
-          },
-        ),
-        data: jsonEncode({
-          'model': 'deepseek-chat',
-          'messages': [
-            {'role': 'system', 'content': 'You are Sana, a helpful and friendly Hinglish AI assistant. Respond concisely in Hinglish.'},
-            {'role': 'user', 'content': prompt},
-          ],
-          'stream': true,
-        }),
-      );
-
-      // स्ट्रीमिंग रिस्पॉन्स को संभालना
-      String fullResponse = '';
-      await for (final chunk in response.data.stream) {
-        final lines = chunk.toString().split('\n');
-        for (final line in lines) {
-          if (line.startsWith('data: ')) {
-            final data = line.substring(6);
-            if (data == '[DONE]') continue;
-            try {
-              final json = jsonDecode(data);
-              final content = json['choices'][0]['delta']['content'];
-              if (content != null) {
-                fullResponse += content;
-                messages.last['content'] = fullResponse;
-                notifyListeners();
-              }
-            } catch (_) {}
-          }
-        }
-      }
-      isGenerating = false;
-      notifyListeners();
-      return fullResponse;
-    } catch (e) {
-      messages.last['content'] = 'Error: ${e.toString()}';
-      isGenerating = false;
-      notifyListeners();
-      return null;
+    // बहुभाषी मॉक जवाब
+    String mockReply;
+    if (ttsVoice == 'ur-PK') {
+      mockReply = "السلام علیکم! میں ثناء ہوں۔ یہ ایک آزمائشی پیغام ہے۔";
+    } else if (ttsVoice == 'hi-IN') {
+      mockReply = "नमस्ते! मैं सना हूँ। यह एक परीक्षण संदेश है।";
+    } else {
+      mockReply = "Hello! I am Sana. This is a test message.";
     }
+
+    String buffer = "";
+    for (var word in mockReply.split(" ")) {
+      await Future.delayed(const Duration(milliseconds: 80));
+      buffer += "$word ";
+      messages.last['content'] = buffer;
+      notifyListeners();
+    }
+
+    isGenerating = false;
+    notifyListeners();
+    return mockReply;
   }
 
-  void updateSettings({String? voice, double? rate, bool? autoSpeak}) {
+  void updateSettings({String? voice, double? rate, bool? autoSpeak, String? sttLocale}) {
     if (voice != null) ttsVoice = voice;
     if (rate != null) ttsRate = rate;
     if (autoSpeak != null) this.autoSpeak = autoSpeak;
+    if (sttLocale != null) selectedSttLocale = sttLocale;
     notifyListeners();
-  }
-
-  void retry() {
-    errorMessage = null;
-    initialize();
   }
 }
