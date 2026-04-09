@@ -16,20 +16,16 @@ jobs:
         with:
           flutter-version: '3.27.0'
       
-      # पहले Android फोल्डर बनाएँ
       - name: Create Android folder if missing
         run: |
           if [ ! -d "android" ]; then
             flutter create --platforms=android .
           fi
       
-      # अब llama.cpp को सही जगह क्लोन करें
-      - name: Clone llama.cpp for llama_cpp_dart
+      # compileSdk को 36 पर सेट करें
+      - name: Update compileSdk to 36 for flutter_tts
         run: |
-          cd android/app
-          git clone https://github.com/ggerganov/llama.cpp.git
-          cd llama.cpp
-          git checkout master
+          sed -i 's/compileSdk = .*/compileSdk = 36/' android/app/build.gradle
       
       - name: Install dependencies
         run: flutter pub get
