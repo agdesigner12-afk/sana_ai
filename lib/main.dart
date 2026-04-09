@@ -3,7 +3,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:llama_cpp_dart/llama_cpp_dart.dart';
+import 'package:llama/llama.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -753,7 +753,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 // -------------------------------------------------------------
-// State Management (llama_cpp_dart)
+// State Management (llama package)
 // -------------------------------------------------------------
 enum AppState { downloading, loading, ready, error }
 enum DownloadStatus { idle, downloading, completed, failed }
@@ -767,7 +767,7 @@ class SanaState extends ChangeNotifier {
   List<Map<String, String>> messages = [];
   bool isGenerating = false;
 
-  LlamaCpp? _llama;
+  Llama? _llama;
   final Dio _dio = Dio();
   final String modelUrl = 'https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf';
 
@@ -823,7 +823,7 @@ class SanaState extends ChangeNotifier {
     appState = AppState.loading;
     notifyListeners();
     try {
-      _llama = LlamaCpp(modelPath: path);
+      _llama = Llama(modelPath: path);
       await _llama!.initialize();
       appState = AppState.ready;
       notifyListeners();
