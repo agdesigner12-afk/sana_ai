@@ -753,7 +753,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 }
 
 // -------------------------------------------------------------
-// State Management (llama_flutter)
+// State Management
 // -------------------------------------------------------------
 enum AppState { downloading, loading, ready, error }
 enum DownloadStatus { idle, downloading, completed, failed }
