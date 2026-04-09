@@ -22,16 +22,17 @@ jobs:
             flutter create --platforms=android .
           fi
 
-      # ✅ Kotlin संस्करण अपडेट करें (यह नया स्टेप है)
-      - name: Update Kotlin version
+      # ✅ Kotlin Gradle प्लगइन को 2.0.0 पर सेट करें
+      - name: Update Kotlin version to 2.0.0
         run: |
-          # settings.gradle में Kotlin प्लगइन वर्शन बदलें
-          sed -i 's/org.jetbrains.kotlin.android" version "[^"]*"/org.jetbrains.kotlin.android" version "1.9.0"/' android/settings.gradle
-          # यदि settings.gradle में न हो तो build.gradle में ext.kotlin_version सेट करें
-          if ! grep -q "ext.kotlin_version" android/build.gradle; then
-            sed -i "/buildscript {/a \    ext.kotlin_version = '1.9.0'" android/build.gradle
+          # settings.gradle में प्लगइन वर्शन अपडेट करें
+          sed -i 's/org.jetbrains.kotlin.android" version "[^"]*"/org.jetbrains.kotlin.android" version "2.0.0"/' android/settings.gradle
+          # यदि build.gradle में ext.kotlin_version है तो उसे भी अपडेट करें
+          if grep -q "ext.kotlin_version" android/build.gradle; then
+            sed -i "s/ext.kotlin_version = .*/ext.kotlin_version = '2.0.0'/" android/build.gradle
           else
-            sed -i "s/ext.kotlin_version = .*/ext.kotlin_version = '1.9.0'/" android/build.gradle
+            # नहीं तो buildscript ब्लॉक में जोड़ें
+            sed -i "/buildscript {/a \    ext.kotlin_version = '2.0.0'" android/build.gradle
           fi
 
       - name: Remove CMake configuration from build.gradle
